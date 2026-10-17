@@ -13,7 +13,7 @@ const words={
  en:{home:'Home',stays:'Cabins',explore:'Map',trip:'My trip',team:'Team',tag:'CHAPTER 01 / KOLSAY',title:'Where stories begin.',lead:'Mountains, lakes, and pine forests. Stay a few nights and discover a story of your own.',cabins:'Stay closer to nature',book:'Reserve',calendar:'Choose your dates',arrive:'Check-in',depart:'Check-out',guest:'Guests',nights:'Nights',total:'Total',next:'Continue',pay:'Confirm simulated payment',simulate:'Demo payment only: no money is charged. Test reservations are shared online.',map:'Adventure map',coming:'Coming soon',open:'Open',none:'No demo bookings yet',confirm:'Test reservation saved to shared database',out:'Mark check-out',clean:'Cleaning needed',ready:'Ready',close:'Close'}
 };
 function DayPicker({start,end,onSelect,bookings,house,lang}:{start:string;end:string;onSelect:(s:string,e:string)=>void;bookings:Booking[];house:string;lang:Lang}) {
- const today=todayISO(),[count,setCount]=useState(12);
+ const today=todayISO(),[count,setCount]=useState(4);
  const cy=Number(today.slice(0,4)),cm=Number(today.slice(5,7))-1;
  const blocked=bookings.filter(b=>b.house===house).map(b=>({start:b.start,end:b.end}));
  function pick(d:string){if(d<today||blocked.some(x=>d>=x.start&&d<x.end))return;
@@ -22,7 +22,7 @@ function DayPicker({start,end,onSelect,bookings,house,lang}:{start:string;end:st
  const months=Array.from({length:count},(_,i)=>{const x=new Date(Date.UTC(cy,cm+i,1));return {year:x.getUTCFullYear(),month:x.getUTCMonth(),key:x.toISOString().slice(0,7)}});
  const week=(lang==='ru'?['Пн','Вт','Ср','Чт','Пт','Сб','Вс']:['Mo','Tu','We','Th','Fr','Sa','Su']);
  return <div className="calendar continuous-calendar">
-  <div className="calendar-scroll" aria-label={lang==='ru'?'Прокручивайте месяцы вниз, чтобы выбрать даты':'Scroll down to choose dates'}>
+  <div className="calendar-scroll" onScroll={e=>{const box=e.currentTarget;if(count<24&&box.scrollTop+box.clientHeight>=box.scrollHeight-180)setCount(v=>Math.min(24,v+4));}} aria-label={lang==='ru'?'Прокручивайте месяцы вниз, чтобы выбрать даты':'Scroll down to choose dates'}>
   {months.map(m=><div className="calendar-month" key={m.key}>
    <div className="month-title">{new Intl.DateTimeFormat(lang==='ru'?'ru-RU':'en-US',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(Date.UTC(m.year,m.month,1)))}</div>
    <div className="date-grid">{week.map(x=><span key={x} className="weekday">{x}</span>)}
@@ -31,7 +31,7 @@ function DayPicker({start,end,onSelect,bookings,house,lang}:{start:string;end:st
     disabled={d<today||blocked.some(x=>d>=x.start&&d<x.end)} onClick={()=>pick(d)}>{Number(d.slice(-2))}</button>:<span key={'empty'+i}/>)}
    </div>
   </div>)}
-  <button className="load-months" type="button" onClick={()=>setCount(v=>v+6)}>{lang==='ru'?'Показать следующие 6 месяцев':'Show 6 more months'} ↓</button>
+  {count<24&&<button className="load-months" type="button" onClick={()=>setCount(v=>Math.min(24,v+4))}>{lang==='ru'?'Следующие месяцы':'More months'} ↓</button>}
   </div>
   <div className="cal-helper">{end?nightsBetween(start,end)+' '+words[lang].nights.toLowerCase():start?(lang==='ru'?'Теперь выберите дату выезда — можно прокрутить к следующему месяцу':'Choose checkout; scroll to the next month'):(lang==='ru'?'Выберите заезд и прокрутите вниз для следующих месяцев':'Select check-in; scroll down for later months')}</div>
  </div>;
