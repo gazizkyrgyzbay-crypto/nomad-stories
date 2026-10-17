@@ -55,6 +55,7 @@ export default function NomadApp(){
  const [apiReady,setApiReady]=useState(false),[apiError,setApiError]=useState('');
  const [saving,setSaving]=useState(false),[bookingError,setBookingError]=useState('');
  
+ const [staffCode,setStaffCode]=useState(''),[staffDraft,setStaffDraft]=useState(''),[teamBookings,setTeamBookings]=useState<(Booking & {cleaned:boolean})[]>([]),[staffError,setStaffError]=useState('');
  const calendarBookings:Booking[]=availability.map(a=>({...a,id:'',guests:1,status:'confirmed'}));
  async function refreshAvailability(){try{const r=await fetch('/api/demo',{cache:'no-store'});if(!r.ok)throw new Error('offline');const v=await r.json();setAvailability(v.bookings);setApiReady(true);setApiError('')}catch{setApiReady(false);setApiError('offline')}}
  async function refreshTeam(code:string){const r=await fetch('/api/demo?staff=1',{headers:{Authorization:'Bearer '+code},cache:'no-store'});if(!r.ok)throw new Error('Access denied');const d=await r.json();setTeamBookings(d.bookings);}
