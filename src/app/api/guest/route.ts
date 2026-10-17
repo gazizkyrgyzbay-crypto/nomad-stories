@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
-import { COOKIE, DEMO_MODE, constantEqual, createSession, guestIdFromCookie, initGuests, noStore, normalizeContact, otpHash, testCode, withGuestCookie } from '@/lib/guest';
+import { COOKIE, DEMO_MODE, constantEqual, createSession, guestIdFromCookie, initGuests, noStore, normalizeContact, otpHash, testCode, withGuestCookie, sha } from '@/lib/guest';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -30,7 +30,7 @@ export async function POST(req:NextRequest){
     const body=await req.json();await ready();
     if(body.action==='logout'){
       const token=req.cookies.get(COOKIE)?.value;
-      if(token)await db().query("DELETE FROM demo_guest_sessions WHERE token_hash=$1",[requireHash(token)]);
+      if(token)await db().query("DELETE FROM demo_guest_sessions WHERE token_hash=$1",[sha(token)]);
       const response=noStore({ok:true});response.cookies.set(COOKIE,'',{maxAge:0,path:'/',httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production'});return response;
     }
     const contact=normalizeContact(body.contact);
@@ -68,4 +68,3 @@ export async function POST(req:NextRequest){
     return noStore({error:'Invalid action'},400);
   }catch{return noStore({error:'Guest login temporarily unavailable'},503)}
 }
-function requireHash(token:string){return require('node:crypto').createHash('sha256').update(token).digest('hex')}
