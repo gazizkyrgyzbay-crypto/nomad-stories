@@ -18,6 +18,7 @@ export function normalizeName(input:unknown):string|null {
   return s.length>=2&&s.length<=80&&!/[<>{}]/.test(s)?s:null;
 }
 export async function initGuests(pool:Pool) {
+  await pool.query("CREATE TABLE IF NOT EXISTS demo_bookings (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), house varchar(2) NOT NULL CHECK (house IN ('01','02','03')), start_date date NOT NULL, end_date date NOT NULL, guests int NOT NULL CHECK (guests BETWEEN 1 AND 4), status text NOT NULL DEFAULT 'confirmed' CHECK (status IN ('confirmed','checked_out')), cleaned boolean NOT NULL DEFAULT false, created_at timestamptz NOT NULL DEFAULT now(), CHECK (end_date > start_date))");
   await pool.query("CREATE TABLE IF NOT EXISTS demo_guests (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), display_name text NOT NULL, contact text NOT NULL UNIQUE, created_at timestamptz NOT NULL DEFAULT now())");
   await pool.query("CREATE TABLE IF NOT EXISTS demo_guest_sessions (token_hash text PRIMARY KEY, guest_id uuid NOT NULL REFERENCES demo_guests(id) ON DELETE CASCADE, expires_at timestamptz NOT NULL)");
   await pool.query("CREATE TABLE IF NOT EXISTS demo_login_codes (contact text PRIMARY KEY, code_hash text NOT NULL, expires_at timestamptz NOT NULL, attempts integer NOT NULL DEFAULT 0, generated_at timestamptz NOT NULL DEFAULT now())");
