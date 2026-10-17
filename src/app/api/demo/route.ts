@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { nightsBetween, todayISO } from '@/lib/dates';
-import { DEMO_MODE, initGuests, normalizeContact, normalizeName } from '@/lib/guest';
+import { DEMO_MODE, initGuests, normalizeContact, normalizeName, createSession, withGuestCookie } from '@/lib/guest';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,7 +38,7 @@ export async function GET(req:NextRequest){
     if(!DEMO_MODE)return fail('Demo mode disabled',403);
     await init();
     const staff=req.nextUrl.searchParams.get('staff')==='1';
-    if(staff&&!allowed(req))return fail('Staff access required',401);
+    if(staff)return fail('Use the dedicated /team staff portal',403);
     const r=await db().query("SELECT id::text, house, to_char(start_date,'YYYY-MM-DD') AS start_date, to_char(end_date,'YYYY-MM-DD') AS end_date, guests, status, cleaned FROM demo_bookings ORDER BY start_date ASC LIMIT 1000");
     const list=r.rows.map(mapRow);
     return NextResponse.json(staff?{bookings:list}:{bookings:list.map(x=>({house:x.house,start:x.start,end:x.end}))},{headers:{'Cache-Control':'no-store'}});
@@ -50,6 +50,7 @@ export async function POST(req:NextRequest){
     if(!DEMO_MODE)return fail('Demo mode disabled',403);
     if(Number(req.headers.get('content-length')||0)>2048)return fail('Request too large',413);
     const input=await req.json();
+    if(input?.action==='staff-login'||input?.action==='staff-update')return fail('Use the dedicated /team staff portal',403);
     if(input?.action==='staff-login'){
       return allowed(req)?NextResponse.json({ok:true}):fail('Wrong staff code',401);
     }
@@ -89,8 +90,9 @@ export async function POST(req:NextRequest){
       const inserted=await conn.query("INSERT INTO demo_guests(display_name,contact) VALUES ($1,$2) ON CONFLICT(contact) DO UPDATE SET contact=EXCLUDED.contact RETURNING id::text",[guestName,contact]);
       const guestId=inserted.rows[0].id;
       const result=await conn.query("INSERT INTO demo_bookings(house,start_date,end_date,guests,guest_id) VALUES ($1,$2,$3,$4,$5) RETURNING id::text",[house,start,end,guests,guestId]);
+      const guestSession=await createSession(conn,guestId);
       await conn.query('COMMIT');
-      return NextResponse.json({booking:{id:result.rows[0].id,house,start,end,guests,status:'confirmed'},nights,total:nights*45000},{status:201});
+      return withGuestCookie(NextResponse.json({booking:{id:result.rows[0].id,house,start,end,guests,status:'confirmed'},nights,total:nights*45000},{status:201}),guestSession);
     }catch(e){await conn.query('ROLLBACK').catch(()=>{});throw e;}finally{conn.release();}
   }catch{ return fail('Could not complete test request',503); }
 }
