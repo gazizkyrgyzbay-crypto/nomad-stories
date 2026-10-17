@@ -91,3 +91,14 @@ export const guestWords={
  }
 } as const;
 export function getSavedLanguage(value:unknown):Lang{return value==='kk'||value==='en'||value==='ru'?value:'kk'}
+
+export function houseName(lang:Lang,id:string):string{
+ const index=id==='01'?0:id==='02'?1:2;
+ const names:Record<Lang,string[]>={kk:['Орман үйі','Көл үйі','Тау үйі'],en:['Forest House','Lake House','Mountain House'],ru:['Лесной дом','Дом у озера','Горный дом']};
+ return names[lang][index];
+}
+export const brandTexts:Record<Lang,{tagline:string,preview:string,guestWord:string}>={
+ kk:{tagline:'ЕСТЕ ҚАЛАР САЯХАТТАР',preview:'ТҰЖЫРЫМДАМА НҰСҚАСЫ',guestWord:'ҚОНАҚТАР САЙТЫ'},
+ en:{tagline:'COLLECTION OF EXPERIENCES',preview:'CONCEPT PREVIEW',guestWord:'GUEST WEBSITE'},
+ ru:{tagline:'КОЛЛЕКЦИЯ ВПЕЧАТЛЕНИЙ',preview:'КОНЦЕПТУАЛЬНАЯ ВЕРСИЯ',guestWord:'САЙТ ДЛЯ ГОСТЕЙ'}
+};
