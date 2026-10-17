@@ -1,4 +1,4 @@
-name: NOMAD cloud smoke
+name: NOMAD online end-to-end smoke
 on:
   push:
     branches: [v0.2-dev]
@@ -9,15 +9,11 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Verify public site is reachable
-        run: |
-          curl --fail --silent --show-error --retry 8 --retry-all-errors --retry-delay 10 --max-time 15 https://nomad-web-staging.up.railway.app/ > /tmp/nomad.html
-          grep -q "NOMAD" /tmp/nomad.html
-      - name: Verify database-backed availability API
-        run: |
-          curl --fail --silent --show-error --retry 8 --retry-all-errors --retry-delay 10 --max-time 15 https://nomad-web-staging.up.railway.app/api/demo > /tmp/availability.json
-          node -e 'const f=require("fs");const d=JSON.parse(f.readFileSync("/tmp/availability.json","utf8"));if(!Array.isArray(d.bookings))process.exit(1);console.log("Available booking records:",d.bookings.length)'
-      - name: Verify staff API rejects anonymous access
-        run: |
-          code=$(curl -s -o /tmp/staff-response.json -w "%{http_code}" --max-time 15 "https://nomad-web-staging.up.railway.app/api/demo?staff=1")
-          test "$code" = "401"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test staging site, database and guest flows (synthetic data only)
+        env:
+          NOMAD_BASE_URL: https://nomad-web-staging.up.railway.app
+        run: node scripts/online-smoke.mjs
