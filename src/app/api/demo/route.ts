@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { nightsBetween } from '@/lib/dates';
+import { nightsBetween, todayISO } from '@/lib/dates';
+import { DEMO_MODE, initGuests, normalizeContact, normalizeName } from '@/lib/guest';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,7 +17,7 @@ function db(): Pool {
   return pool;
 }
 async function init(){
-  if (!ready) ready = db().query("CREATE TABLE IF NOT EXISTS demo_bookings (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), house varchar(2) NOT NULL CHECK (house IN ('01','02','03')), start_date date NOT NULL, end_date date NOT NULL, guests int NOT NULL CHECK (guests BETWEEN 1 AND 4), status text NOT NULL DEFAULT 'confirmed' CHECK (status IN ('confirmed','checked_out')), cleaned boolean NOT NULL DEFAULT false, created_at timestamptz NOT NULL DEFAULT now(), CHECK (end_date > start_date))").then(()=>{});
+  if (!ready) ready = db().query("CREATE TABLE IF NOT EXISTS demo_bookings (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), house varchar(2) NOT NULL CHECK (house IN ('01','02','03')), start_date date NOT NULL, end_date date NOT NULL, guests int NOT NULL CHECK (guests BETWEEN 1 AND 4), status text NOT NULL DEFAULT 'confirmed' CHECK (status IN ('confirmed','checked_out')), cleaned boolean NOT NULL DEFAULT false, created_at timestamptz NOT NULL DEFAULT now(), CHECK (end_date > start_date))").then(async()=>{await initGuests(db())});
   try { await ready; } catch(e) { ready=undefined; throw e; }
 }
 function validDate(s:unknown):s is string{
@@ -34,6 +35,7 @@ function mapRow(r:any):BookingRow { return {id:r.id,house:r.house,start:r.start_
 function fail(message:string,status=400){return NextResponse.json({error:message},{status,headers:{'Cache-Control':'no-store'}})}
 export async function GET(req:NextRequest){
   try{
+    if(!DEMO_MODE)return fail('Demo mode disabled',403);
     await init();
     const staff=req.nextUrl.searchParams.get('staff')==='1';
     if(staff&&!allowed(req))return fail('Staff access required',401);
@@ -45,6 +47,7 @@ export async function GET(req:NextRequest){
 const requests=new Map<string,{count:number,until:number}>();
 export async function POST(req:NextRequest){
   try{
+    if(!DEMO_MODE)return fail('Demo mode disabled',403);
     if(Number(req.headers.get('content-length')||0)>2048)return fail('Request too large',413);
     const input=await req.json();
     if(input?.action==='staff-login'){
@@ -64,10 +67,12 @@ export async function POST(req:NextRequest){
     }
     if(input?.action!=='book')return fail('Invalid action');
     const house=input.house, start=input.start, end=input.end, guests=input.guests;
+    const guestName=normalizeName(input.guestName), contact=normalizeContact(input.contact);
+    if(!guestName||!contact)return fail('Test only: use fictional name and @example.test email or +120255501xx phone');
     if(!['01','02','03'].includes(house)||!validDate(start)||!validDate(end)||
        !Number.isInteger(guests)||guests<1||guests>4)return fail('Invalid booking input');
     const nights=nightsBetween(start,end);
-    const today=new Date().toISOString().slice(0,10);
+    const today=todayISO();
     if(start<today||nights<1||nights>60)return fail('Invalid date range');
     const key=req.headers.get('x-real-ip')||'shared', now=Date.now(), previous=requests.get(key);
     const current=previous&&now<previous.until?previous:{count:0,until:now+3600000};
@@ -81,7 +86,9 @@ export async function POST(req:NextRequest){
       await conn.query('SELECT pg_advisory_xact_lock(hashtext($1))',[house]);
       const collision=await conn.query("SELECT id FROM demo_bookings WHERE house=$1 AND start_date < $3::date AND end_date > $2::date LIMIT 1",[house,start,end]);
       if(collision.rowCount){await conn.query('ROLLBACK');return fail('These dates are no longer available',409);}
-      const result=await conn.query("INSERT INTO demo_bookings(house,start_date,end_date,guests) VALUES ($1,$2,$3,$4) RETURNING id::text",[house,start,end,guests]);
+      const inserted=await conn.query("INSERT INTO demo_guests(display_name,contact) VALUES ($1,$2) ON CONFLICT(contact) DO UPDATE SET contact=EXCLUDED.contact RETURNING id::text",[guestName,contact]);
+      const guestId=inserted.rows[0].id;
+      const result=await conn.query("INSERT INTO demo_bookings(house,start_date,end_date,guests,guest_id) VALUES ($1,$2,$3,$4,$5) RETURNING id::text",[house,start,end,guests,guestId]);
       await conn.query('COMMIT');
       return NextResponse.json({booking:{id:result.rows[0].id,house,start,end,guests,status:'confirmed'},nights,total:nights*45000},{status:201});
     }catch(e){await conn.query('ROLLBACK').catch(()=>{});throw e;}finally{conn.release();}
