@@ -147,3 +147,11 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# NOMAD v0.2 deployment and secrets
+.env.local
+.env.*.local
+*.pem
+*.key
+*.backup
+.next/

@@ -1,0 +1,19 @@
+name: NOMAD online end-to-end smoke
+on:
+  push:
+    branches: [v0.2-dev]
+  workflow_dispatch:
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test staging site, database and guest flows (synthetic data only)
+        env:
+          NOMAD_BASE_URL: https://nomad-web-staging.up.railway.app
+        run: node scripts/online-smoke.mjs
