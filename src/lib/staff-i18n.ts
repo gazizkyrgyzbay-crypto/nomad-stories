@@ -69,6 +69,11 @@ const messages:Record<string,{kk:string;en:string}>={
  'На уборке':{kk:'Тазалауда',en:'Cleaning'},
  'Отметить выезд':{kk:'Кетуді белгілеу',en:'Mark checkout'},
  'Бронирований пока нет':{kk:'Әзірге брондау жоқ',en:'No bookings yet'},
+ '← Ранее':{kk:'← Алдыңғы',en:'← Previous'},
+ 'Позже →':{kk:'Келесі →',en:'Next →'},
+ 'Выйти ↗':{kk:'Шығу ↗',en:'Sign out ↗'},
+ '↻ Обновить':{kk:'↻ Жаңарту',en:'↻ Refresh'},
+ 'Убрано ✓':{kk:'Тазаланды ✓',en:'Cleaned ✓'},
  'Тестовое управление':{kk:'Сынақ басқаруы',en:'Test console'}
 };
 
