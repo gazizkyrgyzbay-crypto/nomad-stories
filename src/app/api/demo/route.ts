@@ -87,12 +87,14 @@ export async function POST(req:NextRequest){
       await conn.query('SELECT pg_advisory_xact_lock(hashtext($1))',[house]);
       const collision=await conn.query("SELECT id FROM demo_bookings WHERE house=$1 AND start_date < $3::date AND end_date > $2::date LIMIT 1",[house,start,end]);
       if(collision.rowCount){await conn.query('ROLLBACK');return fail('These dates are no longer available',409);}
-      const inserted=await conn.query("INSERT INTO demo_guests(display_name,contact) VALUES ($1,$2) ON CONFLICT(contact) DO UPDATE SET contact=EXCLUDED.contact RETURNING id::text",[guestName,contact]);
-      const guestId=inserted.rows[0].id;
+      const inserted=await conn.query("INSERT INTO demo_guests(display_name,contact) VALUES ($1,$2) ON CONFLICT(contact) DO NOTHING RETURNING id::text",[guestName,contact]);
+      const isNewGuest=Boolean(inserted.rowCount);
+      const guestId=isNewGuest?inserted.rows[0].id:(await conn.query("SELECT id::text FROM demo_guests WHERE contact=$1",[contact])).rows[0].id;
       const result=await conn.query("INSERT INTO demo_bookings(house,start_date,end_date,guests,guest_id) VALUES ($1,$2,$3,$4,$5) RETURNING id::text",[house,start,end,guests,guestId]);
-      const guestSession=await createSession(conn,guestId);
+      const guestSession=isNewGuest?await createSession(conn,guestId):null;
       await conn.query('COMMIT');
-      return withGuestCookie(NextResponse.json({booking:{id:result.rows[0].id,house,start,end,guests,status:'confirmed'},nights,total:nights*45000},{status:201}),guestSession);
+      const response=NextResponse.json({booking:{id:result.rows[0].id,house,start,end,guests,status:'confirmed'},nights,total:nights*45000},{status:201});
+      return guestSession?withGuestCookie(response,guestSession):response;
     }catch(e){await conn.query('ROLLBACK').catch(()=>{});throw e;}finally{conn.release();}
   }catch{ return fail('Could not complete test request',503); }
 }
