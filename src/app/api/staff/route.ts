@@ -45,8 +45,8 @@ export async function GET(req:NextRequest){
   await init();
   const actor=await session(req);
   if(!actor)return noStore({authenticated:false,initialized:Boolean((await db().query("SELECT 1 FROM demo_staff WHERE role='owner' LIMIT 1")).rowCount)},401);
-  const r=await db().query("SELECT b.id::text,b.house,to_char(b.start_date,'YYYY-MM-DD') AS start,to_char(b.end_date,'YYYY-MM-DD') AS end,b.guests,b.status,b.cleaned,g.display_name AS guest_name FROM demo_bookings b LEFT JOIN demo_guests g ON g.id=b.guest_id ORDER BY b.start_date DESC LIMIT 1000");
-  const bookings=r.rows.map(v=>({...v,guest_name:actor.role==='housekeeping'?null:v.guest_name}));
+  const r=await db().query("SELECT b.id::text,b.house,to_char(b.start_date,'YYYY-MM-DD') AS start_date,to_char(b.end_date,'YYYY-MM-DD') AS end_date,b.guests,b.status,b.cleaned,g.display_name AS guest_name FROM demo_bookings b LEFT JOIN demo_guests g ON g.id=b.guest_id ORDER BY b.start_date DESC LIMIT 1000");
+  const bookings=r.rows.map(v=>({id:v.id,house:v.house,start:v.start_date,end:v.end_date,guests:v.guests,status:v.status,cleaned:v.cleaned,guest_name:actor.role==='housekeeping'?null:v.guest_name}));
   const accounts=actor.role==='owner'?(await db().query("SELECT id::text,email,display_name,role,created_at FROM demo_staff ORDER BY created_at ASC")).rows:[];
   return noStore({authenticated:true,staff:{name:actor.display_name,role:actor.role,email:actor.email},bookings,accounts});
  }catch{return noStore({error:'Staff console unavailable'},503)}
